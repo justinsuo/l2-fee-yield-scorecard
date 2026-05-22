@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>L2 Capital-Efficiency Scorecard — major rollups by fee yield</title>
+<meta name="description" content="Live on-chain scorecard comparing major L2s (Arbitrum, Base, Scroll, Starknet, Taiko, zkSync, Linea) on TVL, fee revenue, and fee yield. Data: DefiLlama." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#000; --panel:rgba(255,255,255,.03); --panel2:rgba(255,255,255,.05);
+    --line:rgba(255,255,255,.09); --line2:rgba(255,255,255,.07);
+    --txt:#ffffff; --mut:#969696; --dim:#5e5e5e;
+    --brand:#0099ff; --brand2:#6f5cff; --acc:#34d399; --acc2:#33aaff; --warn:#ff5c5c;
+    --r:16px;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:"Manrope",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    font-size:15px;line-height:1.6;letter-spacing:-.011em;position:relative;overflow-x:hidden;}
+  /* Framer-style vivid gradient hero glow on pure black */
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:
+      radial-gradient(48% 38% at 28% -4%, rgba(0,153,255,.30) 0%, transparent 68%),
+      radial-gradient(42% 34% at 76% -2%, rgba(111,92,255,.26) 0%, transparent 68%),
+      radial-gradient(34% 30% at 54% 4%, rgba(255,80,170,.14) 0%, transparent 70%);}
+  .wrap{max-width:1080px;margin:0 auto;padding:80px 24px 100px;position:relative;z-index:1}
+  ::selection{background:rgba(0,153,255,.34)}
+
+  header h1{font-size:48px;line-height:1.04;margin:0 0 16px;font-weight:800;letter-spacing:-.035em;
+    background:linear-gradient(180deg,#fff 38%,#a8b0bd 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;}
+  header p.sub{color:var(--mut);margin:0;font-size:18px;line-height:1.5;max-width:640px;font-weight:500;letter-spacing:-.012em}
+  .badge{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:#cfd3da;
+    border:1px solid var(--line);border-radius:999px;padding:6px 14px;margin-bottom:26px;
+    background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));backdrop-filter:blur(8px)}
+  .badge .dot{width:6px;height:6px;border-radius:50%;background:var(--acc);
+    box-shadow:0 0 0 4px rgba(52,211,153,.18)}
+  header p.meta{color:var(--dim);font-size:12.5px;margin:20px 0 0}
+  header .meta b{color:var(--mut);font-weight:600}
+
+  .grid{display:grid;gap:16px}
+  @media(min-width:760px){.two{grid-template-columns:1fr 1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:24px;
+    backdrop-filter:blur(12px)}
+  .card h2{font-size:12.5px;margin:0 0 18px;font-weight:700;color:var(--mut);
+    text-transform:uppercase;letter-spacing:.08em}
+  canvas{max-height:300px}
+
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th,td{text-align:right;padding:12px 10px;border-bottom:1px solid var(--line2);white-space:nowrap}
+  th:first-child,td:first-child{text-align:left}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr{transition:background .14s ease}
+  tbody tr:hover{background:rgba(255,255,255,.03)}
+  th{color:var(--dim);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.08em}
+  td{font-variant-numeric:tabular-nums;color:#cfd3da}
+  td:first-child{color:var(--txt);font-weight:600}
+  .chip{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:9px;vertical-align:middle}
+  .yield-hi{color:var(--acc);font-weight:700} .yield-lo{color:var(--warn);font-weight:700}
+
+  .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:38px 0 22px}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:20px 22px;
+    backdrop-filter:blur(12px);position:relative;overflow:hidden}
+  .kpi::after{content:"";position:absolute;top:0;left:0;right:0;height:1px;
+    background:linear-gradient(90deg,transparent,rgba(0,153,255,.5),transparent)}
+  .kpi .v{font-size:28px;font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+  .kpi .l{color:var(--mut);font-size:12.5px;margin-top:5px;font-weight:500}
+
+  .thesis{margin-top:16px}
+  .thesis h2{font-size:12.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.08em}
+  .thesis p{color:#c4c8d0}
+  .thesis .claim{border-left:2px solid var(--brand);padding:6px 0 6px 18px;margin:18px 0;color:var(--txt);
+    font-size:16px;line-height:1.55;font-weight:500}
+  .thesis code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;
+    background:rgba(255,255,255,.06);padding:2px 6px;border-radius:6px;color:#cfd3da}
+
+  a{color:var(--acc2);text-decoration:none;border-bottom:1px solid transparent;transition:border-color .14s}
+  a:hover{border-bottom-color:rgba(51,170,255,.55)}
+  .loading{color:var(--mut)}
+  footer{color:var(--dim);font-size:12.5px;margin-top:46px;border-top:1px solid var(--line2);padding-top:22px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="badge"><span class="dot"></span>Live · DefiLlama API</span>
+    <h1>L2 Capital-Efficiency Scorecard</h1>
+    <p class="sub">Major L2 rollups, ranked by how much fee revenue each dollar of locked capital actually produces.</p>
+    <p class="meta">Fetched in-browser on load · <span id="ts">…</span></p>
+  </header>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="grid two">
+    <div class="card"><h2>Total Value Locked ($B)</h2><canvas id="tvlChart"></canvas></div>
+    <div class="card"><h2>Fee revenue, last 30d ($M)</h2><canvas id="feeChart"></canvas></div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <h2>Fee yield — annualized 30d fees ÷ TVL (the efficiency metric)</h2>
+    <canvas id="yieldChart"></canvas>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <h2>Scorecard</h2>
+    <div id="tableWrap"><p class="loading">Loading live on-chain data…</p></div>
+  </div>
+
+  <section class="thesis card">
+    <h2>What this tells us</h2>
+    <p>The market still prices L2s on <em>TVL and narrative</em>. This scorecard prices them on the
+    metric that actually accrues value to a token: <strong>fee yield</strong> — annualized network fees
+    divided by the capital sitting on the chain. It's the on-chain analogue of revenue-on-assets.</p>
+
+    <p class="claim" id="claim">Reading live numbers…</p>
+
+    <p><strong>The ZK angle.</strong> The general-purpose ZK rollups (Scroll, Starknet, Taiko, zkSync)
+    show the structural tension worth underwriting: proving is still a real cost line, and until
+    prover costs compress and liquidity stops fragmenting across a dozen chains, fee revenue stays
+    thin relative to the capital they've attracted. The investable question isn't "is ZK the
+    endgame" (it is) — it's <em>which</em> teams reach durable fee yield before incentives run out.
+    I'd want to see fee yield trending up independent of token emissions before underwriting at
+    primary-round prices.</p>
+
+    <p style="color:var(--dim);font-size:13px">Method: TVL from <code>/v2/chains</code>; fees from
+    <code>/overview/fees/&lt;chain&gt;</code> (30d, annualized ×12.17); yield = annualized fees ÷ TVL.
+    Fees are a proxy for protocol revenue, not token cash flow — directionally right, not GAAP.
+    Chains with sub-$10M measured TVL, or an implied yield over 100% (a tell that DefiLlama is
+    undercounting that chain's TVL), are marked <em>n/m</em> and kept out of the ranking rather than
+    flattering it. Built as a working sketch of the diligence tooling I'd ship internally.</p>
+  </section>
+
+  <footer>
+    Built by <a href="https://github.com/justinsuo">Justin Suo</a> ·
+    source + Dune queries on <a href="https://github.com/justinsuo/l2-fee-yield-scorecard">GitHub</a> ·
+    data <a href="https://defillama.com">DefiLlama</a>. Not investment advice.
+  </footer>
+</div>
+
+<script>
+const CHAINS = [
+  {key:"Arbitrum", label:"Arbitrum", color:"#28a0f0", tag:"optimistic"},
+  {key:"Base",     label:"Base",     color:"#4d6dff", tag:"optimistic"},
+  {key:"OP Mainnet",label:"Optimism",color:"#ff5a5f", tag:"optimistic"},
+  {key:"Scroll",   label:"Scroll",   color:"#f5c89b", tag:"zk"},
+  {key:"Starknet", label:"Starknet", color:"#ec796b", tag:"zk"},
+  {key:"zksync era",label:"zkSync Era",color:"#9b8cff", tag:"zk", feesSlug:"zksync-era"},
+  {key:"Linea",    label:"Linea",    color:"#61dfff", tag:"zk"},
+  {key:"Taiko",    label:"Taiko",    color:"#e85aa8", tag:"zk"},
+];
+const ANNUALIZE = 365/30; // 30d -> year
+const fmtB = v => "$"+(v/1e9).toFixed(2)+"B";
+const fmtM = v => "$"+(v/1e6).toFixed(2)+"M";
+const fmtPct = v => (v*100).toFixed(2)+"%";
+
+// Chart.js global theme to match the page
+Chart.defaults.font.family = "'Manrope', -apple-system, sans-serif";
+Chart.defaults.font.size = 12;
+Chart.defaults.color = "#969696";
+
+async function getJSON(u){ const r = await fetch(u); if(!r.ok) throw new Error(r.status); return r.json(); }
+
+async function load(){
+  document.getElementById("ts").textContent = new Date().toLocaleString();
+  // TVL
+  const chains = await getJSON("https://api.llama.fi/v2/chains");
+  const tvlByName = {};
+  chains.forEach(c => tvlByName[c.name.toLowerCase()] = c.tvl);
+  // Fees per chain (tolerate failures)
+  const rows = [];
+  for(const c of CHAINS){
+    let tvl = tvlByName[c.key.toLowerCase()] ?? 0;
+    let fee30 = 0;
+    try{
+      const slug = c.feesSlug || encodeURIComponent(c.key);
+      const f = await getJSON(`https://api.llama.fi/overview/fees/${slug}?excludeTotalDataChart=true&excludeTotalDataChartBreakdown=true`);
+      fee30 = f.total30d || 0;
+    }catch(e){ /* leave 0 */ }
+    const annFees = fee30 * ANNUALIZE;
+    const yld = tvl > 0 ? annFees / tvl : 0;
+    rows.push({...c, tvl, fee30, annFees, yld});
+  }
+  render(rows);
+}
+
+// A yield is only meaningful when TVL is both non-trivial and well-measured.
+// Yield > 100% almost always means DefiLlama is undercounting that chain's TVL
+// (real fees, phantom-low TVL) — flag as n/m rather than letting it top the chart.
+const MIN_TVL = 10e6, MAX_YIELD = 1.0;
+const meaningful = r => r.tvl >= MIN_TVL && r.yld > 0 && r.yld <= MAX_YIELD;
+
+function render(rows){
+  const byTvl = [...rows].sort((a,b)=>b.tvl-a.tvl);
+  const byYield = rows.filter(meaningful).sort((a,b)=>b.yld-a.yld);
+  const flagged = rows.filter(r=>!meaningful(r));
+
+  // KPIs
+  const totTvl = rows.reduce((s,r)=>s+r.tvl,0);
+  const totFees = rows.reduce((s,r)=>s+r.annFees,0);
+  const topY = byYield[0];
+  document.getElementById("kpis").innerHTML = `
+    <div class="kpi"><div class="v">${fmtB(totTvl)}</div><div class="l">Combined TVL, ${rows.length} L2s</div></div>
+    <div class="kpi"><div class="v">${fmtB(totFees)}</div><div class="l">Combined annualized fees</div></div>
+    <div class="kpi"><div class="v yield-hi">${topY?fmtPct(topY.yld):"—"}</div><div class="l">Top fee yield · ${topY?topY.label:""}</div></div>`;
+
+  // Table
+  const zk = byYield.filter(r=>r.tag==="zk");
+  const zkAvg = zk.length ? zk.reduce((s,r)=>s+r.yld,0)/zk.length : 0;
+  const claimEl = document.getElementById("claim");
+  if(topY){
+    claimEl.innerHTML = `On live data, <b>${topY.label}</b> turns locked capital into fees most
+      efficiently at <b class="yield-hi">${fmtPct(topY.yld)}</b> annualized — while the ZK-rollup
+      cohort averages just <b class="yield-lo">${fmtPct(zkAvg)}</b>. The chains with the deepest TVL
+      are not the ones earning the most per dollar; that gap is where the mispricing lives.`;
+  }
+  let html = `<table><thead><tr>
+    <th>L2</th><th>Type</th><th>TVL</th><th>Fees 30d</th><th>Fees (ann.)</th><th>Fee yield</th></tr></thead><tbody>`;
+  byYield.concat(flagged).forEach((r,i)=>{
+    const ok = meaningful(r);
+    const cls = r.yld>=zkAvg ? "yield-hi":"yield-lo";
+    const yldCell = ok ? `<span class="${cls}">${fmtPct(r.yld)}</span>`
+      : `<span style="color:var(--dim)" title="TVL too thin or undercounted — yield not meaningful">n/m</span>`;
+    html += `<tr>
+      <td><span class="chip" style="background:${r.color}"></span>${r.label}</td>
+      <td style="text-align:left;color:var(--mut)">${r.tag==="zk"?"ZK":"Optimistic"}</td>
+      <td>${fmtB(r.tvl)}</td>
+      <td>${fmtM(r.fee30)}</td>
+      <td>${fmtM(r.annFees)}</td>
+      <td>${yldCell}</td></tr>`;
+  });
+  html += "</tbody></table>";
+  document.getElementById("tableWrap").innerHTML = html;
+
+  const baseOpts = {responsive:true, plugins:{legend:{display:false},
+      tooltip:{backgroundColor:"#0c0c0c",borderColor:"rgba(255,255,255,.12)",borderWidth:1,
+        titleColor:"#fff",bodyColor:"#c4c8d0",padding:10,cornerRadius:10,displayColors:false}},
+    borderRadius:6, maxBarThickness:46,
+    scales:{x:{ticks:{color:"#969696"},grid:{display:false},border:{display:false}},
+            y:{ticks:{color:"#5e5e5e"},grid:{color:"rgba(255,255,255,.06)"},border:{display:false}}}};
+  new Chart(tvlChart,{type:"bar",data:{labels:byTvl.map(r=>r.label),
+    datasets:[{data:byTvl.map(r=>+(r.tvl/1e9).toFixed(3)),backgroundColor:byTvl.map(r=>r.color)}]},options:baseOpts});
+  const byFee=[...rows].sort((a,b)=>b.fee30-a.fee30);
+  new Chart(feeChart,{type:"bar",data:{labels:byFee.map(r=>r.label),
+    datasets:[{data:byFee.map(r=>+(r.fee30/1e6).toFixed(3)),backgroundColor:byFee.map(r=>r.color)}]},options:baseOpts});
+  new Chart(yieldChart,{type:"bar",data:{labels:byYield.map(r=>r.label),
+    datasets:[{data:byYield.map(r=>+(r.yld*100).toFixed(3)),backgroundColor:byYield.map(r=>r.color)}]},
+    options:{...baseOpts, scales:{...baseOpts.scales, y:{...baseOpts.scales.y,
+      ticks:{color:"#5e5e5e",callback:v=>v+"%"}}}}});
+}
+
+load().catch(e=>{
+  document.getElementById("tableWrap").innerHTML =
+    `<p style="color:var(--warn)">Couldn't reach the DefiLlama API (${e.message}). Refresh, or check the network.</p>`;
+});
+</script>
+</body>
+</html>
